@@ -31,6 +31,7 @@
 enum MsgTypes{
     JOINREQ,
     JOINREP,
+    HEARTBEAT,
     DUMMYLASTMSGTYPE
 };
 
@@ -41,7 +42,20 @@ enum MsgTypes{
  */
 typedef struct MessageHdr {
 	enum MsgTypes msgType;
+	int messageCount;
 }MessageHdr;
+
+typedef struct MessageBody {
+  int id;
+  short port;
+  long heartbeat;
+} MessageBody;
+
+typedef struct HeartbeatElement {
+  int id;
+  short port;
+  long heartbeat;
+} HeartbeatElement;
 
 /**
  * CLASS NAME: MP1Node
@@ -74,7 +88,11 @@ public:
 	int isNullAddress(Address *addr);
 	Address getJoinAddress();
 	void initMemberListTable(Member *memberNode);
-	void printAddress(Address *addr);
+	string printAddress(Address *addr);
+	void sendMessage(Address *dstAddr, MsgTypes msType);
+	void addMember(int id, short port, long heartbeat);
+	bool updateMember(int id, short port, long heartbeat);
+	string printMemberList();
 	virtual ~MP1Node();
 };
 
