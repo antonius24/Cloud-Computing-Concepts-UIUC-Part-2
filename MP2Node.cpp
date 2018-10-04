@@ -258,10 +258,24 @@ void MP2Node::checkMessages() {
 
 		string message(data, data + size);
 
-		/*
-		 * Handle the message types here
-		 */
+		Message msg(message);
 
+		switch (msg.type) {
+			case CREATE:
+				createKeyValue(msg.key, msg.value, msg.replica);
+				break;
+			case READ:
+				readKey(msg.key);
+				break;
+			case UPDATE:
+				updateKeyValue(msg.key, msg.value, msg.replica);
+				break;
+			case DELETE:
+				deletekey(msg.key);
+				break;
+			default:
+				break;
+		}
 	}
 
 	/*
