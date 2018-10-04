@@ -73,7 +73,6 @@ void MP2Node::updateRing() {
 		stabilizationProtocol();
 	}
 
-	//if (ring.size() != curMemList.size() || ) 
 	// Run stabilization protocol if the hash table size is greater than zero and if there has been a changed in the ring
 }
 
@@ -127,12 +126,7 @@ size_t MP2Node::hashFunction(string key) {
  * 				3) Sends a message to the replica
  */
 void MP2Node::clientCreate(string key, string value) {
-	Message primaryMessage(transactionID, this->memberNode->addr, CREATE, key, value, PRIMARY);
-	Message secondaryMessage(transactionID, this->memberNode->addr, CREATE, key, value, SECONDARY);
-	Message tertiaryMessage(transactionID, this->memberNode->addr, CREATE, key, value, TERTIARY);
-
-	string logMsg("clientCreate: primaryMessage" + primaryMessage.toString());
-	log->LOG(&this->memberNode->addr, logMsg.c_str());
+	dispatchMessages(CREATE, key, value);
 }
 
 /**
@@ -145,9 +139,7 @@ void MP2Node::clientCreate(string key, string value) {
  * 				3) Sends a message to the replica
  */
 void MP2Node::clientRead(string key){
-	/*
-	 * Implement this
-	 */
+	dispatchMessages(READ, key, "");
 }
 
 /**
@@ -160,9 +152,7 @@ void MP2Node::clientRead(string key){
  * 				3) Sends a message to the replica
  */
 void MP2Node::clientUpdate(string key, string value){
-	/*
-	 * Implement this
-	 */
+	dispatchMessages(UPDATE, key, value);
 }
 
 /**
@@ -175,9 +165,7 @@ void MP2Node::clientUpdate(string key, string value){
  * 				3) Sends a message to the replica
  */
 void MP2Node::clientDelete(string key){
-	/*
-	 * Implement this
-	 */
+	dispatchMessages(DELETE, key, "");
 }
 
 /**
@@ -350,4 +338,28 @@ void MP2Node::stabilizationProtocol() {
 	/*
 	 * Implement this
 	 */
+}
+/**
+ * FUNCTION NAME: dispatchMessages
+ *
+ * DESCRIPTION: coordinator dispatches messages to corresponding nodes
+ */
+void MP2Node::dispatchMessages(MessageType type, string key, string value) {
+	vector<Node> nodes = findNodes(key);
+	if (!nodes.empty()) {
+		Message primaryMessage(transactionID, memberNode->addr, type, key, value, PRIMARY);
+		Message secondaryMessage(transactionID, memberNode->addr, type, key, value, SECONDARY);
+		Message tertiaryMessage(transactionID, memberNode->addr, type, key, value, TERTIARY);
+		string logMsg("clientCreate: primaryMessage" + primaryMessage.toString());
+		log->LOG(&this->memberNode->addr, logMsg.c_str());
+		// Send primary message
+		emulNet->ENsend(&memberNode->addr, &nodes.at(0).nodeAddress, primaryMessage.toString());
+		// Send secondary message
+		emulNet->ENsend(&memberNode->addr, &nodes.at(1).nodeAddress, secondaryMessage.toString());
+		// Send tertiary message
+		emulNet->ENsend(&memberNode->addr, &nodes.at(2).nodeAddress, tertiaryMessage.toString());
+	} else {
+		string logMsg("Cannot find replication nodes!");
+		log->LOG(&this->memberNode->addr, logMsg.c_str());
+	}
 }
