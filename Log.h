@@ -37,6 +37,7 @@ public:
 	void LOG(Address *, const char * str, ...);
 	void logNodeAdd(Address *, Address *);
 	void logNodeRemove(Address *, Address *);
+	void logNode(Address *, Address *);
 	// success
 	void logCreateSuccess(Address * address, bool isCoordinator, int transID, string key, string value);
 	void logReadSuccess(Address * address, bool isCoordinator, int transID, string key, string value);

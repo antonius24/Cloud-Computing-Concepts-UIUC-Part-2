@@ -15,6 +15,7 @@ MP2Node::MP2Node(Member *memberNode, Params *par, EmulNet * emulNet, Log * log, 
 	this->log = log;
 	ht = new HashTable();
 	this->memberNode->addr = *address;
+	this->transactionID = g_transID;
 }
 
 /**
@@ -56,6 +57,23 @@ void MP2Node::updateRing() {
 	/*
 	 * Step 3: Run the stabilization protocol IF REQUIRED
 	 */
+	bool isChanged = false;
+	if (ring.size() != curMemList.size()) {
+		isChanged = true;
+	}
+
+	for (int i=0; i<ring.size(); i++) {
+		if (ring[i].getHashCode() != curMemList[i].getHashCode()) {
+			isChanged = true;
+			break;
+		}
+	}
+
+	if (isChanged) {
+		stabilizationProtocol();
+	}
+
+	//if (ring.size() != curMemList.size() || ) 
 	// Run stabilization protocol if the hash table size is greater than zero and if there has been a changed in the ring
 }
 
@@ -79,6 +97,7 @@ vector<Node> MP2Node::getMembershipList() {
 		memcpy(&addressOfThisMember.addr[0], &id, sizeof(int));
 		memcpy(&addressOfThisMember.addr[4], &port, sizeof(short));
 		curMemList.emplace_back(Node(addressOfThisMember));
+		//log->logNode(&this->memberNode->addr, &addressOfThisMember);
 	}
 	return curMemList;
 }
@@ -108,9 +127,12 @@ size_t MP2Node::hashFunction(string key) {
  * 				3) Sends a message to the replica
  */
 void MP2Node::clientCreate(string key, string value) {
-	/*
-	 * Implement this
-	 */
+	Message primaryMessage(transactionID, this->memberNode->addr, CREATE, key, value, PRIMARY);
+	Message secondaryMessage(transactionID, this->memberNode->addr, CREATE, key, value, SECONDARY);
+	Message tertiaryMessage(transactionID, this->memberNode->addr, CREATE, key, value, TERTIARY);
+
+	string logMsg("clientCreate: primaryMessage" + primaryMessage.toString());
+	log->LOG(&this->memberNode->addr, logMsg.c_str());
 }
 
 /**

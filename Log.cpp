@@ -131,6 +131,17 @@ void Log::logNodeRemove(Address *thisNode, Address *removedAddr) {
 }
 
 /**
+ * FUNCTION NAME: logNode
+ *
+ * DESCRIPTION: To log a node
+ */
+void Log::logNode(Address *thisNode, Address *removedAddr) {
+	static char stdstring[30];
+	sprintf(stdstring, "Node %d.%d.%d.%d:%d logged at time %d", removedAddr->addr[0], removedAddr->addr[1], removedAddr->addr[2], removedAddr->addr[3], *(short *)&removedAddr->addr[4], par->getcurrtime());
+    LOG(thisNode, stdstring);
+}
+
+/**
  * FUNCTION NAME: logCreateSuccess
  *
  * DESCRTION: Call this function after successfully create a key value pair
@@ -224,7 +235,7 @@ void Log::logReadFail(Address * address, bool isCoordinator, int transID, string
 	else
 		str = "server";
 	sprintf(stdstring, "%s: read fail at time %d, transID=%d, key=%s", str.c_str(), par->getcurrtime(), transID, key.c_str());
-    LOG(address, stdstring);
+	LOG(address, stdstring);
 }
 
 /**
