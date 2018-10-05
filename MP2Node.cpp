@@ -57,19 +57,18 @@ void MP2Node::updateRing() {
 	/*
 	 * Step 3: Run the stabilization protocol IF REQUIRED
 	 */
-	bool isChanged = false;
 	if (ring.size() != curMemList.size()) {
-		isChanged = true;
+		change = true;
 	}
 
 	for (int i=0; i<ring.size(); i++) {
 		if (ring[i].getHashCode() != curMemList[i].getHashCode()) {
-			isChanged = true;
+			change = true;
 			break;
 		}
 	}
 
-	if (isChanged) {
+	if (change) {
 		stabilizationProtocol();
 	}
 
@@ -191,9 +190,7 @@ bool MP2Node::createKeyValue(string key, string value, ReplicaType replica) {
  * 			    2) Return value
  */
 string MP2Node::readKey(string key) {
-	/*
-	 * Implement this
-	 */
+	return ht->read(key);
 	// Read key from local hash table and return value
 }
 
@@ -206,9 +203,8 @@ string MP2Node::readKey(string key) {
  * 				2) Return true or false based on success or failure
  */
 bool MP2Node::updateKeyValue(string key, string value, ReplicaType replica) {
-	/*
-	 * Implement this
-	 */
+	Entry entry(value, par->getcurrtime(), replica);
+	return ht->update(key, entry.convertToString());
 	// Update key in local hash table and return true or false
 }
 
@@ -221,9 +217,7 @@ bool MP2Node::updateKeyValue(string key, string value, ReplicaType replica) {
  * 				2) Return true or false based on success or failure
  */
 bool MP2Node::deletekey(string key) {
-	/*
-	 * Implement this
-	 */
+	return ht->deleteKey(key);
 	// Delete the key from the local hash table
 }
 
