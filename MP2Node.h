@@ -90,6 +90,7 @@ public:
 	// stabilization protocol - handle multiple failures
 	void stabilizationProtocol();
 
+	void processReply(int transactionID, bool success, string value);
 	~MP2Node();
 };
 

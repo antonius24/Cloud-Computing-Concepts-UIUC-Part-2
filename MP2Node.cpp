@@ -177,9 +177,8 @@ void MP2Node::clientDelete(string key){
  * 			   	2) Return true or false based on success or failure
  */
 bool MP2Node::createKeyValue(string key, string value, ReplicaType replica) {
-	/*
-	 * Implement this
-	 */
+	Entry entry(value, par->getcurrtime(), replica);
+	return ht->create(key, entry.convertToString());
 	// Insert key, value, replicaType into the hash table
 }
 
@@ -259,19 +258,57 @@ void MP2Node::checkMessages() {
 		string message(data, data + size);
 
 		Message msg(message);
-
+		Message* replyMsg = nullptr;
 		switch (msg.type) {
 			case CREATE:
-				createKeyValue(msg.key, msg.value, msg.replica);
+				replyMsg = new Message(msg.transID, memberNode->addr, REPLY, false);
+				replyMsg->success = createKeyValue(msg.key, msg.value, msg.replica);
+				if (replyMsg->success) {
+					log->logCreateSuccess(&memberNode->addr, false, msg.transID, msg.key, msg.value);
+				} else {
+					log->logCreateFail(&memberNode->addr, false, msg.transID, msg.key, msg.value);
+				}
+				emulNet->ENsend(&memberNode->addr, &msg.fromAddr, replyMsg->toString());
+				delete replyMsg;
 				break;
 			case READ:
-				readKey(msg.key);
+				replyMsg = new Message(msg.transID, memberNode->addr, "");
+				replyMsg->value = readKey(msg.key);
+				if (replyMsg->value != "") {
+					log->logReadSuccess(&memberNode->addr, false, msg.transID, msg.key, replyMsg->value);
+				} else {
+					log->logReadFail(&memberNode->addr, false, msg.transID, msg.key);
+				}
+				emulNet->ENsend(&memberNode->addr, &msg.fromAddr, replyMsg->toString());
+				delete replyMsg;
 				break;
 			case UPDATE:
-				updateKeyValue(msg.key, msg.value, msg.replica);
+				replyMsg = new Message(msg.transID, memberNode->addr, REPLY, false);
+				replyMsg->success = updateKeyValue(msg.key, msg.value, msg.replica);
+				if (replyMsg->success) {
+					log->logUpdateSuccess(&memberNode->addr, false, msg.transID, msg.key, msg.value);
+				} else {
+					log->logUpdateFail(&memberNode->addr, false, msg.transID, msg.key, msg.value);
+				}
+				emulNet->ENsend(&memberNode->addr, &msg.fromAddr, replyMsg->toString());
+				delete replyMsg;
 				break;
 			case DELETE:
-				deletekey(msg.key);
+				replyMsg = new Message(msg.transID, memberNode->addr, REPLY, false);
+				replyMsg->success = deletekey(msg.key);
+				if (replyMsg->success) {
+					log->logDeleteSuccess(&memberNode->addr, false, msg.transID, msg.key);
+				} else {
+					log->logDeleteFail(&memberNode->addr, false, msg.transID, msg.key);
+				}				
+				emulNet->ENsend(&memberNode->addr, &msg.fromAddr, replyMsg->toString());
+				delete replyMsg;
+				break;
+			case REPLY:
+				processReply(msg.transID, msg.success, "");
+				break;
+			case READREPLY:
+				processReply(msg.transID, msg.success, msg.value);
 				break;
 			default:
 				break;
@@ -376,4 +413,13 @@ void MP2Node::dispatchMessages(MessageType type, string key, string value) {
 		string logMsg("Cannot find replication nodes!");
 		log->LOG(&this->memberNode->addr, logMsg.c_str());
 	}
+}
+
+/**
+ * FUNCTION NAME: processReply
+ *
+ * DESCRIPTION: Process reply message from server
+ */
+void MP2Node::processReply(int transactionID, bool success, string value){
+
 }
