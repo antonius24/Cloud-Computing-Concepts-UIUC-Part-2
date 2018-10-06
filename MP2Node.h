@@ -104,6 +104,7 @@ public:
 	void stabilizationProtocol();
 
 	void processReply(Message receivedMessage);
+	void checkQuorum(Message receivedMessage, transactionInfo* info);
 	~MP2Node();
 };
 

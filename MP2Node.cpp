@@ -402,7 +402,7 @@ void MP2Node::dispatchMessages(MessageType type, string key, string value) {
 		if (transactionMap.find(transactionID) == transactionMap.end()) {
 			transactionMap[transactionID] = info;
 		} else {
-			string logMsg("Transaction ID already in map!");
+			string logMsg("Transaction ID "+ to_string(transactionID) + " already in map!");
 			log->LOG(&this->memberNode->addr, logMsg.c_str());
 		}
 		Message primaryMessage(transactionID, memberNode->addr, type, key, value, PRIMARY);
@@ -428,5 +428,36 @@ void MP2Node::dispatchMessages(MessageType type, string key, string value) {
  * DESCRIPTION: Process reply message from server
  */
 void MP2Node::processReply(Message receivedMessage){
+	int transactionID = receivedMessage.transID;
+	string key = receivedMessage.key;
+	string value = receivedMessage.value;
+	bool success = receivedMessage.success;
+	Entry entry(value);
+
+	if (transactionMap.find(transactionID) != transactionMap.end()) {
+		transactionInfo* info = transactionMap[transactionID];
+		info->transactionCount++;
+		// Create, Update, Delete case
+		if (success) {
+			info->transactionSuccess++;
+		} else {
+			// Read case
+			if (entry.value != "") {
+				info->transactionSuccess++;
+			}
+		}
+		checkQuorum(receivedMessage, info);
+	} else {
+		string logMsg("processReply: Cannot find transactionID " + to_string(transactionID) + " in transactionMap");
+		log->LOG(&this->memberNode->addr, logMsg.c_str());		
+	}
+}
+
+/**
+ * FUNCTION NAME: processReply
+ *
+ * DESCRIPTION: Process reply message from server
+ */
+void MP2Node::checkQuorum(Message receivedMessage, transactionInfo* info){
 
 }
