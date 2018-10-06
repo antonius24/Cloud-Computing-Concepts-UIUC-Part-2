@@ -18,6 +18,13 @@
 #include "Params.h"
 #include "Message.h"
 #include "Queue.h"
+#include <unordered_map>
+
+typedef struct transactionInfo {
+
+
+} transactionInfo;
+
 
 /**
  * CLASS NAME: MP2Node
@@ -49,6 +56,10 @@ private:
 	Log * log;
 	// Transaction ID
 	int transactionID;
+	// Map of transaction info
+	unordered_map<int, transactionInfo *> transactionMap;
+
+
 
 public:
 	MP2Node(Member *memberNode, Params *par, EmulNet *emulNet, Log *log, Address *addressOfMember);
