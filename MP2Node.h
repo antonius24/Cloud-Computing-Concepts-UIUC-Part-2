@@ -20,11 +20,15 @@
 #include "Queue.h"
 #include <unordered_map>
 
-typedef struct transactionInfo {
-
-
-} transactionInfo;
-
+class transactionInfo {
+public:
+	int transactionCount;
+	int transactionSuccess;
+	int transactionId;
+	int craeteTime;
+	transactionInfo(int transCount, int transSuccess, int transId, int cTime) : 
+	transactionCount(transCount), transactionSuccess(transSuccess), transactionId(transId), craeteTime(cTime) {}
+};
 
 /**
  * CLASS NAME: MP2Node
@@ -58,8 +62,6 @@ private:
 	int transactionID;
 	// Map of transaction info
 	unordered_map<int, transactionInfo *> transactionMap;
-
-
 
 public:
 	MP2Node(Member *memberNode, Params *par, EmulNet *emulNet, Log *log, Address *addressOfMember);
@@ -101,7 +103,7 @@ public:
 	// stabilization protocol - handle multiple failures
 	void stabilizationProtocol();
 
-	void processReply(int transactionID, bool success, string value);
+	void processReply(Message receivedMessage);
 	~MP2Node();
 };
 

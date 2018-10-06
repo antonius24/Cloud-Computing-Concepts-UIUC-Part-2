@@ -257,6 +257,8 @@ void MP2Node::checkMessages() {
 			case CREATE:
 				replyMsg = new Message(msg.transID, memberNode->addr, REPLY, false);
 				replyMsg->success = createKeyValue(msg.key, msg.value, msg.replica);
+				replyMsg->key = msg.key;
+				replyMsg->value = msg.value;
 				if (replyMsg->success) {
 					log->logCreateSuccess(&memberNode->addr, false, msg.transID, msg.key, msg.value);
 				} else {
@@ -268,6 +270,7 @@ void MP2Node::checkMessages() {
 			case READ:
 				replyMsg = new Message(msg.transID, memberNode->addr, "");
 				replyMsg->value = readKey(msg.key);
+				replyMsg->key = msg.key;
 				if (replyMsg->value != "") {
 					log->logReadSuccess(&memberNode->addr, false, msg.transID, msg.key, replyMsg->value);
 				} else {
@@ -279,6 +282,8 @@ void MP2Node::checkMessages() {
 			case UPDATE:
 				replyMsg = new Message(msg.transID, memberNode->addr, REPLY, false);
 				replyMsg->success = updateKeyValue(msg.key, msg.value, msg.replica);
+				replyMsg->key = msg.key;
+				replyMsg->value = msg.value;
 				if (replyMsg->success) {
 					log->logUpdateSuccess(&memberNode->addr, false, msg.transID, msg.key, msg.value);
 				} else {
@@ -290,6 +295,7 @@ void MP2Node::checkMessages() {
 			case DELETE:
 				replyMsg = new Message(msg.transID, memberNode->addr, REPLY, false);
 				replyMsg->success = deletekey(msg.key);
+				replyMsg->key = msg.key;
 				if (replyMsg->success) {
 					log->logDeleteSuccess(&memberNode->addr, false, msg.transID, msg.key);
 				} else {
@@ -299,10 +305,10 @@ void MP2Node::checkMessages() {
 				delete replyMsg;
 				break;
 			case REPLY:
-				processReply(msg.transID, msg.success, "");
+				processReply(msg);
 				break;
 			case READREPLY:
-				processReply(msg.transID, msg.success, msg.value);
+				processReply(msg);
 				break;
 			default:
 				break;
@@ -392,6 +398,13 @@ void MP2Node::stabilizationProtocol() {
 void MP2Node::dispatchMessages(MessageType type, string key, string value) {
 	vector<Node> nodes = findNodes(key);
 	if (!nodes.empty()) {
+		transactionInfo* info = new transactionInfo(0, 0, transactionID, par->getcurrtime());
+		if (transactionMap.find(transactionID) == transactionMap.end()) {
+			transactionMap[transactionID] = info;
+		} else {
+			string logMsg("Transaction ID already in map!");
+			log->LOG(&this->memberNode->addr, logMsg.c_str());
+		}
 		Message primaryMessage(transactionID, memberNode->addr, type, key, value, PRIMARY);
 		Message secondaryMessage(transactionID, memberNode->addr, type, key, value, SECONDARY);
 		Message tertiaryMessage(transactionID, memberNode->addr, type, key, value, TERTIARY);
@@ -414,6 +427,6 @@ void MP2Node::dispatchMessages(MessageType type, string key, string value) {
  *
  * DESCRIPTION: Process reply message from server
  */
-void MP2Node::processReply(int transactionID, bool success, string value){
+void MP2Node::processReply(Message receivedMessage){
 
 }
