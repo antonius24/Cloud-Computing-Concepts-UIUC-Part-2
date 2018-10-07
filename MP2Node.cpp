@@ -46,10 +46,10 @@ void MP2Node::updateRing() {
 	 *  Step 1. Get the current membership list from Membership Protocol / MP1
 	 */
 	curMemList = getMembershipList();
-	for (Node node : curMemList) {
-		string logMsg("node in curMemList: " + to_string(node.getHashCode()));
-		log->LOG(&this->memberNode->addr, logMsg.c_str());	
-	}
+	// for (Node node : curMemList) {
+	// 	string logMsg("node in curMemList: " + to_string(node.getHashCode()) + " address: " + node.nodeAddress.getAddress());
+	// 	log->LOG(&this->memberNode->addr, logMsg.c_str());	
+	// }
 	/*
 	 * Step 2: Construct the ring
 	 */
@@ -266,8 +266,6 @@ void MP2Node::checkMessages() {
 			case CREATE:
 				replyMsg = new Message(msg.transID, memberNode->addr, REPLY, false);
 				replyMsg->success = createKeyValue(msg.key, msg.value, msg.replica);
-				replyMsg->key = msg.key;
-				replyMsg->value = msg.value;
 				if (replyMsg->success) {
 					log->logCreateSuccess(&memberNode->addr, false, msg.transID, msg.key, msg.value);
 				} else {
@@ -277,9 +275,9 @@ void MP2Node::checkMessages() {
 				delete replyMsg;
 				break;
 			case READ:
+				//READREPLY
 				replyMsg = new Message(msg.transID, memberNode->addr, "");
 				replyMsg->value = readKey(msg.key);
-				replyMsg->key = msg.key;
 				if (replyMsg->value != "") {
 					log->logReadSuccess(&memberNode->addr, false, msg.transID, msg.key, replyMsg->value);
 				} else {
@@ -291,8 +289,6 @@ void MP2Node::checkMessages() {
 			case UPDATE:
 				replyMsg = new Message(msg.transID, memberNode->addr, REPLY, false);
 				replyMsg->success = updateKeyValue(msg.key, msg.value, msg.replica);
-				replyMsg->key = msg.key;
-				replyMsg->value = msg.value;
 				if (replyMsg->success) {
 					log->logUpdateSuccess(&memberNode->addr, false, msg.transID, msg.key, msg.value);
 				} else {
@@ -304,7 +300,6 @@ void MP2Node::checkMessages() {
 			case DELETE:
 				replyMsg = new Message(msg.transID, memberNode->addr, REPLY, false);
 				replyMsg->success = deletekey(msg.key);
-				replyMsg->key = msg.key;
 				if (replyMsg->success) {
 					log->logDeleteSuccess(&memberNode->addr, false, msg.transID, msg.key);
 				} else {
@@ -397,9 +392,25 @@ int MP2Node::enqueueWrapper(void *env, char *buff, int size) {
  *				Note:- "CORRECT" replicas implies that every key is replicated in its two neighboring nodes in the ring
  */
 void MP2Node::stabilizationProtocol() {
-	/*
-	 * Implement this
-	 */
+	int index = 0;
+	for (index = 0; index < ring.size(); index++) {
+		// Find myself in the ring list
+		if (ring[index].nodeAddress == memberNode->addr) {
+			break;
+		}
+	}
+	vector<Node> replica;
+	replica.push_back(ring[(index+1)%ring.size()]);
+	replica.push_back(ring[(index+2)%ring.size()]);
+
+	if (hasMyReplicas.size() < 2
+		|| !(hasMyReplicas[0].nodeAddress == replica[0].nodeAddress)
+		|| !(hasMyReplicas[1].nodeAddress == replica[1].nodeAddress)) {
+		for (auto const& it : ht->hashTable) {
+			dispatchMessages(CREATE, it.first, it.second);
+		}
+	}
+	hasMyReplicas = replica;
 }
 /**
  * FUNCTION NAME: dispatchMessages
@@ -409,6 +420,7 @@ void MP2Node::stabilizationProtocol() {
 void MP2Node::dispatchMessages(MessageType type, string key, string value) {
 	vector<Node> nodes = findNodes(key);
 	if (!nodes.empty()) {
+		int transactionID = getTransactionID();
 		transactionInfo* info = new transactionInfo(0, 0, transactionID, par->getcurrtime(), type, key, value);
 		if (transactionMap.find(transactionID) == transactionMap.end()) {
 			transactionMap[transactionID] = info;
@@ -441,18 +453,11 @@ void MP2Node::dispatchMessages(MessageType type, string key, string value) {
  */
 void MP2Node::processReply(Message receivedMessage){
 	int transactionID = receivedMessage.transID;
-	string key = receivedMessage.key;
 	string value = receivedMessage.value;
 	bool success = receivedMessage.success;
 
 	if (transactionMap.find(transactionID) != transactionMap.end()) {
 		transactionInfo* info = transactionMap[transactionID];
-		// Double check to see if our transaction information is matching recevied message
-		if (info->key != receivedMessage.key) {
-			string logMsg("processReply: Key in received message does not match transaction info! Transaction ID:" + to_string(transactionID));
-			log->LOG(&this->memberNode->addr, logMsg.c_str());
-			return;
-		}
 		info->transactionCount++;
 		// Create, Update, Delete case
 		if (success) {
@@ -478,7 +483,7 @@ void MP2Node::processReply(Message receivedMessage){
 void MP2Node::checkQuorum(transactionInfo* info){
 	int transactionID = info->transactionId;
 	// We already got majority success
-	if (info->transactionSuccess >= 2) {
+	if (info->transactionSuccess == 2) {
 		switch(info->originalMsgType) {
 			case CREATE:
 				log->logCreateSuccess(&memberNode->addr, true, transactionID, info->key, info->value);
@@ -495,7 +500,7 @@ void MP2Node::checkQuorum(transactionInfo* info){
 			default:
 			    break;
 		}
-	} else if (info->transactionCount == 3 && info->transactionSuccess > 2) {
+	} else if (info->transactionCount == 3 && info->transactionSuccess < 2) {
 		// We did not get majority success
 		switch(info->originalMsgType) {
 			case CREATE:
@@ -514,4 +519,13 @@ void MP2Node::checkQuorum(transactionInfo* info){
 				break;
 		}
 	}
+}
+
+/**
+ * FUNCTION NAME: getTransactionId
+ *
+ * DESCRIPTION: Get and increase transaction id
+ */
+int MP2Node::getTransactionID() {
+	return transactionID++;
 }

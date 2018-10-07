@@ -108,6 +108,7 @@ public:
 
 	void processReply(Message receivedMessage);
 	void checkQuorum(transactionInfo* info);
+	int getTransactionID();
 	~MP2Node();
 };
 
