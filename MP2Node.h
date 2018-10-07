@@ -62,12 +62,8 @@ private:
 	EmulNet * emulNet;
 	// Object of Log
 	Log * log;
-	// Transaction ID
-	//int transactionID;
 	// Map of transaction info
 	unordered_map<int, transactionInfo *> transactionMap;
-	//set<int> transactionIdNeedRemoved;
-	//vector<int> tryV;
 
 public:
 	MP2Node(Member *memberNode, Params *par, EmulNet *emulNet, Log *log, Address *addressOfMember);

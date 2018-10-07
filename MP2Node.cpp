@@ -201,7 +201,7 @@ string MP2Node::readKey(string key) {
 		return value;
 	} else {
 		// Value in backend is stored in Entry format
-		string logMsg("readKey value: "+ value);
+		string logMsg("readKey key: " + key + " value: "+ value);
 		log->LOG(&this->memberNode->addr, logMsg.c_str());
 		Entry entry(value);
 		return entry.value;
@@ -327,25 +327,17 @@ void MP2Node::checkMessages() {
 	/*
 	 * Check timeout failure for all ongoing transaction
 	 */
-	string logMsg("Before checkTimeout");
-	log->LOG(&this->memberNode->addr, logMsg.c_str());
-
-	for (auto const& it : transactionMap) {
-		checkTimeout(it.second);
+	unordered_map<int, transactionInfo *>::const_iterator it = transactionMap.begin();
+	vector<transactionInfo *> transactionInfos;
+	while (it != transactionMap.end()) {
+		transactionInfos.push_back(it->second);
+		it++;
 	}
-	//for (int key : tryV) {
-	//	string logMsg2("Key: " + to_string(key));
-	//	log->LOG(&this->memberNode->addr, logMsg2.c_str());
-	//}
-	//tryV.clear();
-	// for (int key : transactionIdNeedRemoved) {
-	// // 	transactionMap.erase(key);
-	// 	string logMsg2("Key: " + to_string(key));
-	// 	log->LOG(&this->memberNode->addr, logMsg2.c_str());
-	// }
-	// transactionIdNeedRemoved.clear();
-	string logMsg2("After checkTimeout ");
-	log->LOG(&this->memberNode->addr, logMsg2.c_str());
+	for (int i=0; i<transactionInfos.size(); i++) {
+		string logMsg2("Before calling checkTimeout");
+		log->LOG(&this->memberNode->addr, logMsg2.c_str());
+		checkTimeout(transactionInfos[i]);
+	}
 }
 
 /**
@@ -357,8 +349,6 @@ void MP2Node::checkMessages() {
 vector<Node> MP2Node::findNodes(string key) {
 	size_t pos = hashFunction(key);
 	vector<Node> addr_vec;
-	// string logMsg("findNodes ring size: " + to_string(ring.size()));
-	// log->LOG(&this->memberNode->addr, logMsg.c_str());	
 	if (ring.size() >= 3) {
 		// if pos <= min || pos > max, the leader is the min
 		if (pos <= ring.at(0).getHashCode() || pos > ring.at(ring.size()-1).getHashCode()) {
@@ -455,7 +445,7 @@ void MP2Node::dispatchMessages(MessageType type, string key, string value) {
 		Message primaryMessage(transactionID, memberNode->addr, type, key, value, PRIMARY);
 		Message secondaryMessage(transactionID, memberNode->addr, type, key, value, SECONDARY);
 		Message tertiaryMessage(transactionID, memberNode->addr, type, key, value, TERTIARY);
-		string logMsg("clientCreate: primaryMessage" + primaryMessage.toString());
+		string logMsg("client dispatch: primaryMessage: " + primaryMessage.toString());
 		log->LOG(&this->memberNode->addr, logMsg.c_str());
 		// Send primary message
 		emulNet->ENsend(&memberNode->addr, &nodes.at(0).nodeAddress, primaryMessage.toString());
@@ -496,15 +486,8 @@ void MP2Node::processReply(Message receivedMessage){
 	 	 * This function should also ensure all READ and UPDATE operation
 	 	 * get QUORUM replies
 	 	 */
-		string logMsg("Before checkQuorum " + to_string(info->transactionCount) + " transID: " + to_string(info->transactionId));
-		log->LOG(&this->memberNode->addr, logMsg.c_str());
 		checkQuorum(info);
-		string logMsg2("After checkQuorum ");
-		log->LOG(&this->memberNode->addr, logMsg2.c_str());
 
-	} else {
-		// string logMsg("processReply: Cannot find transactionID " + to_string(transactionID) + " in transactionMap");
-		// log->LOG(&this->memberNode->addr, logMsg.c_str());		
 	}
 }
 
@@ -514,11 +497,7 @@ void MP2Node::processReply(Message receivedMessage){
  * DESCRIPTION: Check quorum status
  */
 void MP2Node::checkQuorum(transactionInfo* info){
-	string logMsg4("In checkQuorum!!");
-	log->LOG(&this->memberNode->addr, logMsg4.c_str());
 	int transactionID = info->transactionId;
-	string logMsg3("In checkQuorum: " + to_string(transactionID) + "transCount: " + to_string(info->transactionCount));
-	log->LOG(&this->memberNode->addr, logMsg3.c_str());
 	// We already got majority success
 	if (info->transactionSuccess == 2) {
 		switch(info->originalMsgType) {
@@ -539,17 +518,10 @@ void MP2Node::checkQuorum(transactionInfo* info){
 		}
 		string logMsg("Clean up transaction ID after success: " + to_string(transactionID));
 		log->LOG(&this->memberNode->addr, logMsg.c_str());
-		//int a = transactionID;
-		if (transactionMap.find(transactionID) != transactionMap.end()) {
-			transactionMap.erase(transactionID);
-		}
-		string logMsg2("Clean up transaction ID after success finished: " + to_string(transactionID));
-		log->LOG(&this->memberNode->addr, logMsg2.c_str());
-		//tryV.push_back(a);
-		//transactionIdNeedRemoved.insert(transactionID);
-		
-		//free(info);
-		//delete info;
+		transactionMap.erase(transactionID);
+		string logMsg2("Clean up transaction ID after success finished: " + to_string(transactionID) + " transactionMap size: " + to_string(transactionMap.size()));
+		log->LOG(&this->memberNode->addr, logMsg2.c_str());		
+		delete info;
 	} else if (info->transactionCount == 3 && info->transactionSuccess < 2) {
 		// We did not get majority success.
 		switch(info->originalMsgType) {
@@ -570,18 +542,13 @@ void MP2Node::checkQuorum(transactionInfo* info){
 		}
 		string logMsg("Clean up transaction ID after failure: " + to_string(transactionID));
 		log->LOG(&this->memberNode->addr, logMsg.c_str());
-		//int a = transactionID;
-		if (transactionMap.find(transactionID) != transactionMap.end()) {
-			transactionMap.erase(transactionID);
-		}
-		//tryV.push_back(a);
-		//transactionIdNeedRemoved.insert(transactionID);
-		string logMsg2("Clean up transaction ID after failure finished: " + to_string(transactionID));
+		transactionMap.erase(transactionID);
+		string logMsg2("Clean up transaction ID after failure finished: " + to_string(transactionID) + " transactionMap size: " + to_string(transactionMap.size()));
 		log->LOG(&this->memberNode->addr, logMsg2.c_str());
-		//free(info);
-		//delete info;
+		delete info;
 	}
 }
+
 
 /**
  * FUNCTION NAME: checkTimeout
@@ -593,9 +560,9 @@ void MP2Node::checkTimeout(transactionInfo* info) {
 		info->transactionCount++;
 		checkQuorum(info);
 	}
-	// string logMsg2("In checkTimeout: " + to_string(info->transactionCount) + " transID: " + to_string(info->transactionId));
-	// log->LOG(&this->memberNode->addr, logMsg2.c_str());
 }
+
+
 /**
  * FUNCTION NAME: getTransactionId
  *
