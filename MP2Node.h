@@ -26,8 +26,11 @@ public:
 	int transactionSuccess;
 	int transactionId;
 	int craeteTime;
-	transactionInfo(int transCount, int transSuccess, int transId, int cTime) : 
-	transactionCount(transCount), transactionSuccess(transSuccess), transactionId(transId), craeteTime(cTime) {}
+	MessageType originalMsgType;
+	string key;
+	string value;
+	transactionInfo(int transCount, int transSuccess, int transId, int cTime, MessageType type, string key, string value) : 
+	transactionCount(transCount), transactionSuccess(transSuccess), transactionId(transId), craeteTime(cTime), originalMsgType(type), key(key), value(value) {}
 };
 
 /**
@@ -104,7 +107,7 @@ public:
 	void stabilizationProtocol();
 
 	void processReply(Message receivedMessage);
-	void checkQuorum(Message receivedMessage, transactionInfo* info);
+	void checkQuorum(transactionInfo* info);
 	~MP2Node();
 };
 

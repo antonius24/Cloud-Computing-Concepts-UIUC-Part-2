@@ -46,7 +46,10 @@ void MP2Node::updateRing() {
 	 *  Step 1. Get the current membership list from Membership Protocol / MP1
 	 */
 	curMemList = getMembershipList();
-
+	for (Node node : curMemList) {
+		string logMsg("node in curMemList: " + to_string(node.getHashCode()));
+		log->LOG(&this->memberNode->addr, logMsg.c_str());	
+	}
 	/*
 	 * Step 2: Construct the ring
 	 */
@@ -67,6 +70,8 @@ void MP2Node::updateRing() {
 			break;
 		}
 	}
+
+	ring = curMemList;
 
 	if (change) {
 		stabilizationProtocol();
@@ -190,7 +195,11 @@ bool MP2Node::createKeyValue(string key, string value, ReplicaType replica) {
  * 			    2) Return value
  */
 string MP2Node::readKey(string key) {
-	return ht->read(key);
+	string value = ht->read(key);
+	// Value in backend is stored in Entry format
+	Entry entry(value);
+	return entry.value;
+	//return ht->read(key);
 	// Read key from local hash table and return value
 }
 
@@ -330,6 +339,8 @@ void MP2Node::checkMessages() {
 vector<Node> MP2Node::findNodes(string key) {
 	size_t pos = hashFunction(key);
 	vector<Node> addr_vec;
+	string logMsg("findNodes ring size: " + to_string(ring.size()));
+	log->LOG(&this->memberNode->addr, logMsg.c_str());	
 	if (ring.size() >= 3) {
 		// if pos <= min || pos > max, the leader is the min
 		if (pos <= ring.at(0).getHashCode() || pos > ring.at(ring.size()-1).getHashCode()) {
@@ -398,12 +409,13 @@ void MP2Node::stabilizationProtocol() {
 void MP2Node::dispatchMessages(MessageType type, string key, string value) {
 	vector<Node> nodes = findNodes(key);
 	if (!nodes.empty()) {
-		transactionInfo* info = new transactionInfo(0, 0, transactionID, par->getcurrtime());
+		transactionInfo* info = new transactionInfo(0, 0, transactionID, par->getcurrtime(), type, key, value);
 		if (transactionMap.find(transactionID) == transactionMap.end()) {
 			transactionMap[transactionID] = info;
 		} else {
 			string logMsg("Transaction ID "+ to_string(transactionID) + " already in map!");
 			log->LOG(&this->memberNode->addr, logMsg.c_str());
+			return;
 		}
 		Message primaryMessage(transactionID, memberNode->addr, type, key, value, PRIMARY);
 		Message secondaryMessage(transactionID, memberNode->addr, type, key, value, SECONDARY);
@@ -432,21 +444,26 @@ void MP2Node::processReply(Message receivedMessage){
 	string key = receivedMessage.key;
 	string value = receivedMessage.value;
 	bool success = receivedMessage.success;
-	Entry entry(value);
 
 	if (transactionMap.find(transactionID) != transactionMap.end()) {
 		transactionInfo* info = transactionMap[transactionID];
+		// Double check to see if our transaction information is matching recevied message
+		if (info->key != receivedMessage.key) {
+			string logMsg("processReply: Key in received message does not match transaction info! Transaction ID:" + to_string(transactionID));
+			log->LOG(&this->memberNode->addr, logMsg.c_str());
+			return;
+		}
 		info->transactionCount++;
 		// Create, Update, Delete case
 		if (success) {
 			info->transactionSuccess++;
 		} else {
 			// Read case
-			if (entry.value != "") {
+			if (value != "") {
 				info->transactionSuccess++;
 			}
 		}
-		checkQuorum(receivedMessage, info);
+		checkQuorum(info);
 	} else {
 		string logMsg("processReply: Cannot find transactionID " + to_string(transactionID) + " in transactionMap");
 		log->LOG(&this->memberNode->addr, logMsg.c_str());		
@@ -458,6 +475,43 @@ void MP2Node::processReply(Message receivedMessage){
  *
  * DESCRIPTION: Process reply message from server
  */
-void MP2Node::checkQuorum(Message receivedMessage, transactionInfo* info){
-
+void MP2Node::checkQuorum(transactionInfo* info){
+	int transactionID = info->transactionId;
+	// We already got majority success
+	if (info->transactionSuccess >= 2) {
+		switch(info->originalMsgType) {
+			case CREATE:
+				log->logCreateSuccess(&memberNode->addr, true, transactionID, info->key, info->value);
+				break;
+			case UPDATE:
+				log->logUpdateSuccess(&memberNode->addr, true, transactionID, info->key, info->value);
+				break;
+			case READ:
+				log->logReadSuccess(&memberNode->addr, true, transactionID, info->key, info->value);
+				break;
+			case DELETE:
+				log->logDeleteSuccess(&memberNode->addr, true, transactionID, info->key);	
+			    break;
+			default:
+			    break;
+		}
+	} else if (info->transactionCount == 3 && info->transactionSuccess > 2) {
+		// We did not get majority success
+		switch(info->originalMsgType) {
+			case CREATE:
+				log->logCreateFail(&memberNode->addr, true, transactionID, info->key, info->value);
+				break;
+			case UPDATE:
+				log->logUpdateFail(&memberNode->addr, true, transactionID, info->key, info->value);
+				break;
+			case READ:
+				log->logReadFail(&memberNode->addr, true, transactionID, info->key);
+				break;
+			case DELETE:
+				log->logDeleteFail(&memberNode->addr, true, transactionID, info->key);	
+			    break;
+			default:
+				break;
+		}
+	}
 }
