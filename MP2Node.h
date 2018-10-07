@@ -19,6 +19,7 @@
 #include "Message.h"
 #include "Queue.h"
 #include <unordered_map>
+#include <set>
 
 class transactionInfo {
 public:
@@ -62,9 +63,11 @@ private:
 	// Object of Log
 	Log * log;
 	// Transaction ID
-	int transactionID;
+	//int transactionID;
 	// Map of transaction info
 	unordered_map<int, transactionInfo *> transactionMap;
+	//set<int> transactionIdNeedRemoved;
+	//vector<int> tryV;
 
 public:
 	MP2Node(Member *memberNode, Params *par, EmulNet *emulNet, Log *log, Address *addressOfMember);
@@ -108,7 +111,9 @@ public:
 
 	void processReply(Message receivedMessage);
 	void checkQuorum(transactionInfo* info);
+	void checkTimeout(transactionInfo* info);
 	int getTransactionID();
+
 	~MP2Node();
 };
 
